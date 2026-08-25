@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estación · Entrenador de Morse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #10161a;
+    --bg-2: #161d22;
+    --surface: #1c252b;
+    --surface-2: #232e35;
+    --line: #33424b;
+    --brass: #c9974f;
+    --brass-dim: #8a6b3c;
+    --paper: #ece3cf;
+    --paper-dim: #9aa4a8;
+    --ok: #6fbf8b;
+    --bad: #c15a45;
+    --shadow: 0 10px 30px rgba(0,0,0,0.45);
+    --radius: 4px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse at top, #1a2228 0%, var(--bg) 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .wrap{ max-width: 880px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* Header */
+  header{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom: 22px; flex-wrap:wrap;}
+  h1{
+    font-family:'Special Elite', 'JetBrains Mono', monospace;
+    font-size: clamp(24px, 4vw, 34px);
+    letter-spacing: 1px;
+    color: var(--paper);
+    margin:0;
+  }
+  h1 .dot{ color: var(--brass); }
+  .subtitle{ color: var(--paper-dim); font-size: 12.5px; margin-top:4px; letter-spacing:.5px;}
+  .station-id{ font-size: 11px; color: var(--brass-dim); letter-spacing: 2px; text-transform: uppercase; text-align:right;}
+
+  /* Tape */
+  .tape{
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tape::before{
+    content:'';
+    position:absolute; left:0; top:0; bottom:0; width:4px;
+    background: repeating-linear-gradient(180deg, var(--brass) 0 6px, transparent 6px 12px);
+    opacity:.55;
+  }
+  .tape-label{ font-size: 10.5px; color: var(--paper-dim); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; padding-left: 10px;}
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; padding-left: 10px; }
+  .chip{
+    min-width: 30px; height: 30px; padding: 0 8px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius: var(--radius);
+    font-weight: 700; font-size: 14px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--paper-dim);
+  }
+  .chip.unlocked{ color: var(--bg); background: var(--brass); border-color: var(--brass); }
+  .chip.current-group{ box-shadow: 0 0 0 1px var(--paper) inset; }
+  .chip.locked{ opacity:.35; }
+  .chip.next{ border-style: dashed; border-color: var(--brass-dim); color: var(--brass-dim); }
+
+  /* Panel */
+  .panel{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 26px;
+  }
+
+  /* Idle state */
+  .idle-grid{ display:flex; flex-direction:column; align-items:center; text-align:center; gap: 18px; padding: 20px 0 6px;}
+  .lamp{
+    width: 96px; height: 96px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #2a3540, #131a1e 70%);
+    border: 3px solid var(--line);
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.6);
+    position: relative;
+    transition: box-shadow .06s linear, background .06s linear;
+  }
+  .lamp.lit{
+    background: radial-gradient(circle at 35% 30%, #fff2c9, var(--brass) 65%);
+    box-shadow: 0 0 30px 10px rgba(201,151,79,0.65), inset 0 0 10px rgba(255,255,255,0.4);
+    border-color: var(--brass);
+  }
+  .idle-copy{ color: var(--paper-dim); font-size: 13px; max-width: 440px; line-height:1.6;}
+  .idle-copy b{ color: var(--paper); }
+
+  .mode-toggle{ display:flex; gap:8px; background: var(--bg-2); padding:4px; border-radius: var(--radius); border:1px solid var(--line);}
+  .mode-toggle button{
+    border:none; background:transparent; color: var(--paper-dim);
+    font-family:inherit; font-size:12px; letter-spacing:.5px; padding:8px 14px; border-radius: 3px; cursor:pointer;
+  }
+  .mode-toggle button.active{ background: var(--surface-2); color: var(--brass); font-weight:700; }
+
+  .btn{
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 13px; letter-spacing: .5px;
+    padding: 12px 22px;
+    border-radius: var(--radius);
+    border: 1px solid var(--brass);
+    background: var(--brass);
+    color: #16100a;
+    cursor: pointer;
+    transition: transform .08s ease, filter .12s ease;
+  }
+  .btn:hover{ filter: brightness(1.08); }
+  .btn:active{ transform: translateY(1px); }
+  .btn.ghost{ background: transparent; color: var(--paper-dim); border-color: var(--line); }
+  .btn.ghost:hover{ color: var(--paper); border-color: var(--paper-dim); }
+  .btn.danger{ background: transparent; color: var(--bad); border-color: var(--bad); }
+  .btn.danger:hover{ background: rgba(193,90,69,0.12); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+
+  /* Session state */
+  .session-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 18px; gap:10px; flex-wrap:wrap;}
+  .session-progress{ font-size: 12px; color: var(--paper-dim); letter-spacing:.5px;}
+  .session-score{ font-size: 12px; color: var(--brass); letter-spacing:.5px; font-weight:700;}
+  .bar{ height: 4px; background: var(--bg-2); border-radius: 2px; overflow:hidden; margin-bottom: 24px;}
+  .bar-fill{ height:100%; background: var(--brass); width:0%; transition: width .25s ease;}
+
+  .question-zone{ display:flex; flex-direction:column; align-items:center; gap: 20px; padding: 10px 0 4px;}
+  .code-display{
+    font-size: clamp(30px, 7vw, 46px);
+    letter-spacing: 10px;
+    color: var(--paper);
+    min-height: 60px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700;
+  }
+  .target-letter{
+    font-family:'Special Elite', monospace;
+    font-size: 64px;
+    color: var(--brass);
+  }
+  .controls-row{ display:flex; gap: 10px; align-items:center; flex-wrap:wrap; justify-content:center;}
+
+  input.answer{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px; font-weight:700; text-align:center;
+    width: 90px; padding: 10px 6px;
+    background: var(--bg-2); color: var(--paper);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    text-transform: uppercase; letter-spacing: 2px;
+  }
+  input.answer:focus{ outline:none; border-color: var(--brass); }
+  input.answer.correct{ border-color: var(--ok); color: var(--ok); }
+  input.answer.wrong{ border-color: var(--bad); color: var(--bad); }
+
+  .key-input{
+    font-size: 30px; letter-spacing: 6px; min-height: 44px;
+    color: var(--brass); font-weight:700;
+  }
+  .key-btns{ display:flex; gap: 10px; }
+  .key-btn{
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--paper);
+    font-size: 22px; font-weight:700; cursor:pointer;
+  }
+  .key-btn:active{ background: var(--brass); color:#16100a; }
+
+  .feedback-line{ min-height: 20px; font-size: 12.5px; letter-spacing:.5px; }
+  .feedback-line.ok{ color: var(--ok); }
+  .feedback-line.bad{ color: var(--bad); }
+  .feedback-line .answer-key{ color: var(--paper-dim); }
+
+  .hint{ color: var(--paper-dim); font-size: 11.5px; }
+
+  /* Result */
+  .result{ text-align:center; padding: 10px 0; }
+  .result .big-score{ font-family:'Special Elite', monospace; font-size: 52px; color: var(--paper); margin: 6px 0;}
+  .result .verdict{ font-size: 14px; letter-spacing:1px; margin-bottom: 18px; }
+  .result .verdict.pass{ color: var(--ok); }
+  .result .verdict.fail{ color: var(--bad); }
+  .result-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top: 8px;}
+
+  /* Footer controls */
+  .footer-row{ display:flex; justify-content:space-between; align-items:center; margin-top: 20px; gap: 14px; flex-wrap: wrap;}
+  .settings{ display:flex; align-items:center; gap: 16px; flex-wrap:wrap; color: var(--paper-dim); font-size: 12px;}
+  .settings label{ display:flex; align-items:center; gap:6px; }
+  .settings input[type=range]{ accent-color: var(--brass); }
+  .toggle-sound{
+    background:none; border:1px solid var(--line); color: var(--paper-dim);
+    border-radius: var(--radius); padding: 6px 10px; cursor:pointer; font-family: inherit; font-size: 12px;
+  }
+  .toggle-sound.on{ color: var(--brass); border-color: var(--brass); }
+
+  .unlock-banner{
+    display:none; text-align:center; padding: 10px 14px; margin-bottom: 16px;
+    background: rgba(201,151,79,0.1); border: 1px solid var(--brass-dim); border-radius: var(--radius);
+    color: var(--brass); font-size: 13px; letter-spacing:.5px;
+  }
+  .unlock-banner.show{ display:block; }
+
+  @media (prefers-reduced-motion: reduce){
+    .lamp{ transition:none; }
+    .bar-fill{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Estación<span class="dot">·</span>Morse</h1>
+      <div class="subtitle">entrenador de decodificación · sesiones progresivas</div>
+    </div>
+    <div class="station-id" id="stationId">DE ES1TA</div>
+  </header>
+
+  <div class="tape">
+    <div class="tape-label">Alfabeto desbloqueado</div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="panel">
+
+    <div class="unlock-banner" id="unlockBanner"></div>
+
+    <!-- IDLE -->
+    <div id="idleView">
+      <div class="idle-grid">
+        <div class="lamp" id="idleLamp"></div>
+        <div class="idle-copy" id="idleCopy">Cargando progreso…</div>
+        <div class="mode-toggle" id="modeToggle">
+          <button data-mode="decode" class="active">Escuchar → Escribir</button>
+          <button data-mode="encode">Letra → Morse</button>
+        </div>
+        <button class="btn" id="startBtn">Iniciar sesión</button>
+        <div class="hint" id="idleHint"></div>
+      </div>
+    </div>
+
+    <!-- SESSION -->
+    <div id="sessionView" style="display:none;">
+      <div class="session-head">
+        <div class="session-progress" id="sessionProgress">Pregunta 1 / 20</div>
+        <div class="session-score" id="sessionScore">Aciertos: 0/0</div>
+      </div>
+      <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+
+      <div class="question-zone">
+        <div class="lamp" id="sessionLamp"></div>
+
+        <!-- decode mode elements -->
+        <div id="decodeZone" style="display:none;">
+          <div class="controls-row">
+            <button class="btn ghost" id="replayBtn">▶ Repetir señal</button>
+          </div>
+          <div class="controls-row" style="margin-top:16px;">
+            <input class="answer" id="answerInput" maxlength="1" autocomplete="off" placeholder="?">
+            <button class="btn" id="checkBtn">Comprobar</button>
+          </div>
+        </div>
+
+        <!-- encode mode elements -->
+        <div id="encodeZone" style="display:none; text-align:center;">
+          <div class="target-letter" id="targetLetter">A</div>
+          <div class="key-input" id="keyInput">&nbsp;</div>
+          <div class="key-btns">
+            <button class="key-btn" id="dotBtn">·</button>
+            <button class="key-btn" id="dashBtn">–</button>
+            <button class="key-btn" id="delBtn" style="font-size:14px;">⌫</button>
+          </div>
+          <div class="controls-row" style="margin-top:14px;">
+            <button class="btn" id="checkEncodeBtn">Comprobar</button>
+          </div>
+          <div class="hint">Teclado: punto “.” = dot · guion “-” = dash · Enter comprobar</div>
+        </div>
+
+        <div class="feedback-line" id="feedbackLine"></div>
+      </div>
+    </div>
+
+    <!-- RESULT -->
+    <div id="resultView" style="display:none;">
+      <div class="result">
+        <div class="verdict" id="resultVerdict">RESULTADO</div>
+        <div class="big-score" id="resultScore">0%</div>
+        <div class="idle-copy" id="resultCopy"></div>
+        <div class="result-actions">
+          <button class="btn" id="retryBtn">Otra sesión</button>
+          <button class="btn ghost" id="backBtn">Volver</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-row">
+    <div class="settings">
+      <button class="toggle-sound on" id="soundToggle">🔊 Sonido</button>
+      <label>Velocidad
+        <input type="range" id="speedSlider" min="40" max="140" value="80" step="10">
+      </label>
+    </div>
+    <button class="btn danger" id="resetBtn">Borrar progreso</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Datos Morse ----------
+  const MORSE = {
+    A:'.-', B:'-...', C:'-.-.', D:'-..', E:'.', F:'..-.', G:'--.', H:'....',
+    I:'..', J:'.---', K:'-.-', L:'.-..', M:'--', N:'-.', O:'---', P:'.--.',
+    Q:'--.-', R:'.-.', S:'...', T:'-', U:'..-', V:'...-', W:'.--', X:'-..-',
+    Y:'-.--', Z:'--..',
+    '1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+    '6':'-....','7':'--...','8':'---..','9':'----.','0':'-----'
+  };
+
+  // Grupos progresivos: de patrones simples a complejos
+  const GROUPS = [
+    ['E','T'], ['A','N'], ['I','M'], ['S','O'], ['H','R'],
+    ['D','U'], ['G','K'], ['W','L'], ['F','Y'], ['B','J'],
+    ['V','C'], ['P','X'], ['Q','Z'], ['1','2','3','4','5'], ['6','7','8','9','0']
+  ];
+
+  const STORAGE_KEY = 'morseTrainerProgressV1';
+  const QUESTIONS_PER_SESSION = 20;
+  const PASS_THRESHOLD = 0.90;
+
+  // ---------- Persistencia ----------
+  function loadProgress(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return { unlockedGroups: 1, sessionsCompleted: 0, lastScore: null };
+      const p = JSON.parse(raw);
+      if(typeof p.unlockedGroups !== 'number') p.unlockedGroups = 1;
+      p.unlockedGroups = Math.max(1, Math.min(GROUPS.length, p.unlockedGroups));
+      return p;
+    }catch(e){
+      return { unlockedGroups: 1, sessionsCompleted: 0, lastScore: null };
+    }
+  }
+  function saveProgress(p){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+  }
+
+  let progress = loadProgress();
+
+  // ---------- Estado de UI ----------
+  let mode = 'decode';
+  let session = null; // {letters, queue, index, correct, current}
+  let audioCtx = null;
+  let soundOn = true;
+  let unitMs = 80;
+
+  const el = (id) => document.getElementById(id);
+
+  // ---------- Audio ----------
+  function ensureAudio(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function beep(durationMs){
+    return new Promise((resolve) => {
+      if(!soundOn){ setTimeout(resolve, durationMs); return; }
+      ensureAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 600;
+      gain.gain.value = 0.0001;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+      gain.gain.exponentialRampToValueAtTime(0.25, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + durationMs/1000);
+      osc.start(now);
+      osc.stop(now + durationMs/1000 + 0.02);
+      setTimeout(resolve, durationMs);
+    });
+  }
+  function silence(durationMs){
+    return new Promise((resolve) => setTimeout(resolve, durationMs));
+  }
+
+  async function playMorse(code, lampEl){
+    for(let i=0; i<code.length; i++){
+      const sym = code[i];
+      const dur = sym === '.' ? unitMs : unitMs * 3;
+      lampEl.classList.add('lit');
+      await beep(dur);
+      lampEl.classList.remove('lit');
+      if(i < code.length - 1) await silence(unitMs);
+    }
+  }
+
+  // ---------- Progreso / chips ----------
+  function unlockedLetters(){
+    let letters = [];
+    for(let i=0; i<progress.unlockedGroups; i++) letters = letters.concat(GROUPS[i]);
+    return letters;
+  }
+
+  function renderChips(){
+    const chips = el('chips');
+    chips.innerHTML = '';
+    GROUPS.forEach((group, gi) => {
+      group.forEach(letter => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        if(gi < progress.unlockedGroups){
+          chip.classList.add('unlocked');
+          if(gi === progress.unlockedGroups - 1) chip.classList.add('current-group');
+          chip.textContent = letter;
+        } else if(gi === progress.unlockedGroups){
+          chip.classList.add('next');
+          chip.textContent = '?';
+        } else {
+          chip.classList.add('locked');
+          chip.textContent = '·';
+        }
+        chips.appendChild(chip);
+      });
+    });
+  }
+
+  function renderIdle(){
+    const total = unlockedLetters().length;
+    const groupNum = progress.unlockedGroups;
+    const isComplete = groupNum >= GROUPS.length;
+    el('idleCopy').innerHTML = isComplete
+      ? `Has desbloqueado <b>todo el alfabeto y los números</b>. Sigue practicando sesiones para mantener el nivel.`
+      : `Conjunto actual: <b>${GROUPS[groupNum-1].join(' y ')}</b> · ${total} caracteres desbloqueados en total.<br>Consigue <b>90% o más</b> en la sesión para desbloquear el siguiente conjunto.`;
+    el('idleHint').textContent = progress.lastScore !== null
+      ? `Última sesión: ${Math.round(progress.lastScore*100)}% · Sesiones completadas: ${progress.sessionsCompleted}`
+      : 'Aún no has completado ninguna sesión.';
+    renderChips();
+  }
+
+  // ---------- Construcción de sesión ----------
+  function buildQueue(){
+    const groupNum = progress.unlockedGroups;
+    const cumulative = unlockedLetters();
+    const newest = GROUPS[groupNum - 1];
+    // pool ponderado: letras del grupo más nuevo pesan más
+    const pool = [];
+    cumulative.forEach(l => {
+      const weight = newest.includes(l) ? 3 : 1;
+      for(let i=0;i<weight;i++) pool.push(l);
+    });
+    const queue = [];
+    for(let i=0; i<QUESTIONS_PER_SESSION; i++){
+      queue.push(pool[Math.floor(Math.random()*pool.length)]);
+    }
+    return queue;
+  }
+
+  function startSession(){
+    session = {
+      queue: buildQueue(),
+      index: 0,
+      correct: 0,
+      awaitingAnswer: true
+    };
+    el('idleView').style.display = 'none';
+    el('resultView').style.display = 'none';
+    el('sessionView').style.display = 'block';
+    el('unlockBanner').classList.remove('show');
+    el('decodeZone').style.display = mode === 'decode' ? 'block' : 'none';
+    el('encodeZone').style.display = mode === 'encode' ? 'block' : 'none';
+    nextQuestion();
+  }
+
+  function updateSessionHeader(){
+    el('sessionProgress').textContent = `Pregunta ${session.index+1} / ${session.queue.length}`;
+    el('sessionScore').textContent = `Aciertos: ${session.correct}/${session.index}`;
+    el('barFill').style.width = `${(session.index/session.queue.length)*100}%`;
+  }
+
+  function nextQuestion(){
+    if(session.index >= session.queue.length){
+      finishSession();
+      return;
+    }
+    updateSessionHeader();
+    el('feedbackLine').textContent = '';
+    el('feedbackLine').className = 'feedback-line';
+    session.current = session.queue[session.index];
+
+    if(mode === 'decode'){
+      const input = el('answerInput');
+      input.value = '';
+      input.className = 'answer';
+      input.disabled = false;
+      input.focus();
+      playMorse(MORSE[session.current], el('sessionLamp'));
+    } else {
+      el('targetLetter').textContent = session.current;
+      el('keyInput').innerHTML = '&nbsp;';
+      session.buffer = '';
+    }
+  }
+
+  function evaluateAnswer(isCorrect, correctCode){
+    if(isCorrect) session.correct++;
+    session.index++;
+    const fb = el('feedbackLine');
+    if(isCorrect){
+      fb.textContent = '✓ Correcto';
+      fb.className = 'feedback-line ok';
+    } else {
+      fb.innerHTML = `✗ Era <span class="answer-key">${session.current} (${correctCode})</span>`;
+      fb.className = 'feedback-line bad';
+    }
+    updateSessionHeader();
+    setTimeout(nextQuestion, isCorrect ? 500 : 1200);
+  }
+
+  function checkDecodeAnswer(){
+    if(!session || session.index >= session.queue.length) return;
+    const input = el('answerInput');
+    const val = input.value.trim().toUpperCase();
+    if(!val) return;
+    const isCorrect = val === session.current;
+    input.classList.add(isCorrect ? 'correct' : 'wrong');
+    input.disabled = true;
+    evaluateAnswer(isCorrect, MORSE[session.current]);
+  }
+
+  function checkEncodeAnswer(){
+    if(!session || session.index >= session.queue.length) return;
+    const isCorrect = session.buffer === MORSE[session.current];
+    evaluateAnswer(isCorrect, MORSE[session.current]);
+  }
+
+  function finishSession(){
+    el('sessionView').style.display = 'none';
+    el('resultView').style.display = 'block';
+    const score = session.correct / session.queue.length;
+    const pass = score >= PASS_THRESHOLD;
+
+    el('resultScore').textContent = `${Math.round(score*100)}%`;
+    el('resultVerdict').textContent = pass ? 'CONJUNTO SUPERADO' : 'SIGUE PRACTICANDO';
+    el('resultVerdict').className = 'verdict ' + (pass ? 'pass' : 'fail');
+
+    progress.sessionsCompleted++;
+    progress.lastScore = score;
+
+    let unlockedNew = false;
+    if(pass && progress.unlockedGroups < GROUPS.length){
+      progress.unlockedGroups++;
+      unlockedNew = true;
+    }
+    saveProgress(progress);
+
+    if(unlockedNew){
+      const newGroup = GROUPS[progress.unlockedGroups - 1];
+      el('resultCopy').innerHTML = `¡Necesitas ${Math.round(PASS_THRESHOLD*100)}% para avanzar y lo lograste! Nuevo conjunto desbloqueado: <b>${newGroup.join(' y ')}</b>`;
+    } else if(pass){
+      el('resultCopy').textContent = 'Ya tienes todo el alfabeto y los números desbloqueados. ¡Excelente nivel!';
+    } else {
+      el('resultCopy').innerHTML = `Necesitas al menos ${Math.round(PASS_THRESHOLD*100)}% para desbloquear el siguiente conjunto. Repite la sesión cuando quieras.`;
+    }
+    renderIdle();
+  }
+
+  // ---------- Encode mode: entrada dot/dash ----------
+  function addSymbol(sym){
+    if(mode !== 'encode' || !session || session.index >= session.queue.length) return;
+    if(session.buffer.length >= 6) return;
+    session.buffer += sym;
+    el('keyInput').textContent = session.buffer.split('').map(s => s === '.' ? '·' : '–').join(' ');
+  }
+  function delSymbol(){
+    if(!session) return;
+    session.buffer = session.buffer.slice(0, -1);
+    el('keyInput').innerHTML = session.buffer ? session.buffer.split('').map(s => s === '.' ? '·' : '–').join(' ') : '&nbsp;';
+  }
+
+  // ---------- Eventos ----------
+  el('startBtn').addEventListener('click', () => { ensureAudio(); startSession(); });
+  el('retryBtn').addEventListener('click', () => { el('resultView').style.display='none'; el('idleView').style.display='block'; renderIdle(); });
+  el('backBtn').addEventListener('click', () => { el('resultView').style.display='none'; el('idleView').style.display='block'; renderIdle(); });
+
+  el('checkBtn').addEventListener('click', checkDecodeAnswer);
+  el('answerInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') checkDecodeAnswer(); });
+
+  el('replayBtn').addEventListener('click', () => {
+    if(session && session.current) playMorse(MORSE[session.current], el('sessionLamp'));
+  });
+
+  el('dotBtn').addEventListener('click', () => addSymbol('.'));
+  el('dashBtn').addEventListener('click', () => addSymbol('-'));
+  el('delBtn').addEventListener('click', delSymbol);
+  el('checkEncodeBtn').addEventListener('click', checkEncodeAnswer);
+
+  document.addEventListener('keydown', (e) => {
+    if(!session || mode !== 'encode') return;
+    if(e.key === '.') addSymbol('.');
+    else if(e.key === '-') addSymbol('-');
+    else if(e.key === 'Backspace') delSymbol();
+    else if(e.key === 'Enter') checkEncodeAnswer();
+  });
+
+  el('modeToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-mode]');
+    if(!btn) return;
+    mode = btn.dataset.mode;
+    document.querySelectorAll('#modeToggle button').forEach(b => b.classList.toggle('active', b === btn));
+  });
+
+  el('soundToggle').addEventListener('click', () => {
+    soundOn = !soundOn;
+    el('soundToggle').classList.toggle('on', soundOn);
+    el('soundToggle').textContent = soundOn ? '🔊 Sonido' : '🔇 Sonido';
+  });
+
+  el('speedSlider').addEventListener('input', (e) => {
+    unitMs = parseInt(e.target.value, 10);
+  });
+
+  el('resetBtn').addEventListener('click', () => {
+    const ok = confirm('¿Borrar todo el progreso guardado? Esta acción no se puede deshacer.');
+    if(!ok) return;
+    localStorage.removeItem(STORAGE_KEY);
+    progress = loadProgress();
+    session = null;
+    el('sessionView').style.display = 'none';
+    el('resultView').style.display = 'none';
+    el('idleView').style.display = 'block';
+    renderIdle();
+  });
+
+  // ---------- Init ----------
+  renderIdle();
+
+})();
+</script>
+</body>
+</html>
